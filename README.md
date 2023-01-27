@@ -1,14 +1,60 @@
-# Project
+# Microsoft Finance Time Series Forecasting Framework
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+<!-- badges: start -->
+[![CRAN\_Status\_Badge](http://www.r-pkg.org/badges/version/finnts)](https://cran.r-project.org/package=finnts)
+<!-- badges: end -->
 
-As the maintainer of this project, please make a few updates:
+About this repository
+============================================================================================================================================
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+This repository contains examples of how to implement Microsoft Finance's time series forecasting framework, called Finn, through our [open-source R package called finnts](https://microsoft.github.io/finnts/). 
+
+The Microsoft Finance Time Series Forecasting Framework, aka finnts or Finn, is an automated forecasting framework for producing financial forecasts. While it was built for corporate finance activities, it can easily expand to any time series forecasting problem!
+
+- Automated feature engineering, back testing, and model selection. 
+- Access to 25+ models. Univariate, multivariate, and deep learning models all included. 
+- Azure integration to run thousands of time series in parallel within the cloud. 
+- Supports daily, weekly, monthly, quarterly, and yearly forecasts. 
+- Handles external regressors, either purely historical or historical+future values.
+
+Here you can find details around how you can implement Finn using Azure Synapse notebooks to run thousands of time series forecasts at scale using spark. 
+
+Details of the accelerator
+============================================================================================================================
+-   This repository includes the implementation of the finnts forecast package on Azure Synapse
+-   There will be example notebooks walking you through how to set up a Synapse cluster to run Finn and how to approach getting a high quality forecast. 
+
+
+Prerequisites
+============================================================================================================================
+
+In order to successfully complete your solution, you will need to have access to and or provisioned the following:
+
+-   Access to an Azure subscription
+-   Access to an Azure Data Lake Storage account for Blob Storage with read/write permission
+-   Access to an Azure Synapse Workspace with contributor rights
+
+Getting Started
+================================================================================================================================
+
+While Finn can run on a local machine, it shines best when running at scale in Azure. Follow the below resources to learn how to set up an Azure Synapse notebook to start using Finn. 
+
+## How to use this repo
+
+Open `Finn_Walkthrough.md` and follow the notebook.
+
+Contents
+================================================================================================================================
+
+| File/Folder         | Description                                                                                     |
+|---------------------|-------------------------------------------------------------------------------------------------|
+| `docs`              | Finn quick-start guide (`Finn_Walkthrough.md`)                                                  |
+| `synapse-notebooks` | Synapse notebook that runs Finn (`Finn_Demo.ipynb`)                                             |
+| `src/finn`          | Other Finn scripts you will use for set up                                                      |
+
+
+General Coding Guidelines
+=============================================================================================================================
 
 ## Contributing
 
