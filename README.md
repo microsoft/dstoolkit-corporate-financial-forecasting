@@ -49,9 +49,7 @@ Contents
 | File/Folder         | Description                                                                                     |
 |---------------------|-------------------------------------------------------------------------------------------------|
 | `docs`              | Finn quick-start guide (`Finn_Walkthrough.md`)                                                  |
-| `synapse-notebooks` | Synapse notebook that runs Finn (`Finn_Demo.ipynb`)                                             |
-| `src/finn`          | Other Finn scripts you will use for set up                                                      |
-
+| `synapse-notebooks` | Synapse notebook that runs Finn (`DEMO_finnts_ds_toolkit.json`)                                             |
 
 General Coding Guidelines
 =============================================================================================================================

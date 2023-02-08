@@ -1,0 +1,587 @@
+{
+	"name": "finnts_ds_toolkit",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "finnDSToolkit2",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "56g",
+			"driverCores": 8,
+			"executorMemory": "56g",
+			"executorCores": 8,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "dfae07d7-289f-4d47-86f5-c37e1022875b"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "r"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/236415bf-b901-441a-855b-09f8ff10f45e/resourceGroups/EDG-FINML/providers/Microsoft.Synapse/workspaces/fde-advanced-analytics/bigDataPools/finnDSToolkit2",
+				"name": "finnDSToolkit2",
+				"type": "Spark",
+				"endpoint": "https://fde-advanced-analytics.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/finnDSToolkit2",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.2",
+				"nodeCount": 10,
+				"cores": 8,
+				"memory": 56,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Time Series Forecasting Demo with finnts\r\n",
+					"This example notebook walks through getting up and running with the finnts package in Azure Synapse. \r\n",
+					"\r\n",
+					"**Important Note**: Make sure you mount your own ADLS blob storage account in the proper cell. "
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Install finnts and its dependencies"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"outputs_hidden": true
+					}
+				},
+				"source": [
+					"# Install dependencies\r\n",
+					"options(\r\n",
+					"  HTTPUserAgent =\r\n",
+					"    sprintf(\r\n",
+					"      \"R/%s R (%s)\",\r\n",
+					"      getRversion(),\r\n",
+					"      paste(getRversion(), R.version[\"platform\"], R.version[\"arch\"], R.version[\"os\"])\r\n",
+					"    )\r\n",
+					")\r\n",
+					"\r\n",
+					"install.packages(c('glmnet', 'kernlab', 'earth', 'tune'), repos = 'https://packagemanager.rstudio.com/cran/__linux__/bionic/2022-11-08')\r\n",
+					"\r\n",
+					"install.packages(c('Cubist', 'dials', 'doParallel', \r\n",
+					"                   'hts', 'parsnip', 'rules', 'tune', 'workflows'), \r\n",
+					"                repos = 'https://packagemanager.rstudio.com/cran/__linux__/bionic/2022-11-08')\r\n",
+					"\r\n",
+					"install.packages('modeltime', repos = 'https://packagemanager.rstudio.com/cran/__linux__/bionic/2022-11-08')\r\n",
+					"\r\n",
+					"install.packages(c('modeltime.gluonts', 'modeltime.resample', 'timechange', 'clock', \r\n",
+					"                   'modelenv', 'V8', 'juicyjuice', 'bigD'), \r\n",
+					"                repos = 'https://packagemanager.rstudio.com/cran/__linux__/bionic/2022-11-08')"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# install finnts\r\n",
+					"remotes::install_github('microsoft/finnts@users/mitokic/spark_integration', upgrade = FALSE)\r\n",
+					"\r\n",
+					"library(finnts)"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Connect to Spark and Mount ADLS"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# connect to spark version 3.2, change the below version if using another spark runtime version\r\n",
+					"sc <- sparklyr::spark_connect(master = \"yarn\", version = \"3.2\", spark_home = \"/opt/spark\")"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# mount to ADLS with your own linked service\r\n",
+					"library(notebookutils)\r\n",
+					"job_id <- mssparkutils.env.getJobId()\r\n",
+					"\r\n",
+					"mssparkutils.fs.mount( \r\n",
+					"    \"<insert path>\", # path to ADLS blob storage container, for example \"abfss://container-name@adls-name.dfs.core.windows.net\"  \r\n",
+					"    \"/finntest\", # mount point\r\n",
+					"    list(\"linkedService\"=\"<insert name>\") # name of the linked service you set up to connect Synapse to ADLS\r\n",
+					")\r\n",
+					"\r\n",
+					"path = paste0(\"/synfs/\", job_id, \"/finntest\") # final path with the folder you'd like to intermediate finnts outputs to be stored during a run"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Load Test Data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# get simple testing data and create spark data frame\r\n",
+					"data_tbl <- timetk::m4_monthly %>% \r\n",
+					"  dplyr::rename(Date = date) %>% \r\n",
+					"  dplyr::mutate(id = as.character(id)) %>%\r\n",
+					"  dplyr::filter(Date >= \"2010-01-01\", \r\n",
+					"                Date <= \"2015-12-01\")\r\n",
+					"\r\n",
+					"data_sdf <- sparklyr::copy_to(sc, data_tbl, \"data_sdf\", overwrite = TRUE)\r\n",
+					"\r\n",
+					"print(data_sdf)"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Simple Finn Forecast\r\n",
+					"Use the main `forecast_time_series()` function for a low code way to get a high quality forecast"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# set up Finn run\r\n",
+					"run_info_simple <- finnts::set_run_info(path = paste0(path, '/test/'), \r\n",
+					"                                        experiment_name = \"Finn_Demo\", \r\n",
+					"                                        run_name = \"simple_forecast\")"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# submit a Finn forecast with main finnts function\r\n",
+					"finnts::forecast_time_series(\r\n",
+					"    run_info = run_info_simple, \r\n",
+					"    input_data = data_sdf, \r\n",
+					"    combo_variables = c(\"id\"), \r\n",
+					"    target_variable = \"value\", \r\n",
+					"    date_type = \"month\", \r\n",
+					"    forecast_horizon = 3, \r\n",
+					"    models_to_run = c(\"arima\", \"prophet\", \"xgboost\"), # run all models in Finn by using the default value of NULL\r\n",
+					"    run_global_models = FALSE, \r\n",
+					"    parallel_processing = \"spark\", \r\n",
+					"    inner_parallel = TRUE,\r\n",
+					"    return_data = FALSE\r\n",
+					")"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# pull the Finn outputs into a spark dataframe \r\n",
+					"simple_fcst_tbl <- finnts::get_forecast_data(run_info = run_info_simple, \r\n",
+					"                                             return_type = \"sdf\")\r\n",
+					"\r\n",
+					"print(simple_fcst_tbl)"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# pull the trained models\r\n",
+					"simple_models_tbl <- finnts::get_trained_models(run_info = run_info_simple)\r\n",
+					"\r\n",
+					"print(simple_models_tbl)"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Run underlying Finn functions for more control\r\n",
+					"Use the underlying functions that power `forecast_time_series` for even more control of the forecast process"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# set up Finn run\r\n",
+					"run_info_detailed <- finnts::set_run_info(path = paste0(path, '/test/'), \r\n",
+					"                                          experiment_name = \"Finn_Demo\", \r\n",
+					"                                          run_name = \"detailed_forecast\")"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# clean data and run feature engineering\r\n",
+					"finnts::prep_data(\r\n",
+					"  run_info = run_info_detailed, \r\n",
+					"  input_data = data_sdf, \r\n",
+					"  combo_variables = c(\"id\"), \r\n",
+					"  target_variable = \"value\", \r\n",
+					"  date_type = \"month\", \r\n",
+					"  forecast_horizon = 3, \r\n",
+					"  parallel_processing = 'spark'\r\n",
+					")"
+				],
+				"execution_count": 11
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# set up models and hyperparameters\r\n",
+					"finnts::prep_models(run_info = run_info_detailed, \r\n",
+					"                    models_to_run = c('arima', \"xgboost\"), \r\n",
+					"                    num_hyperparameters = 10)"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# train individual models\r\n",
+					"finnts::train_models(run_info = run_info_detailed,  \r\n",
+					"                     parallel_processing = 'spark', \r\n",
+					"                     inner_parallel = TRUE)"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# train ensemble models\r\n",
+					"finnts::ensemble_models(run_info = run_info_detailed, \r\n",
+					"                        parallel_processing = \"spark\", \r\n",
+					"                        inner_parallel = TRUE)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# simple model averaging and best model selection\r\n",
+					"finnts::final_models(run_info = run_info_detailed, \r\n",
+					"                     parallel_processing = \"spark\", \r\n",
+					"                     inner_parallel = TRUE)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# pull the Finn outputs into a spark dataframe \r\n",
+					"detailed_fcst_tbl <- finnts::get_forecast_data(run_info = run_info_detailed, \r\n",
+					"                                               return_type = \"sdf\")\r\n",
+					"\r\n",
+					"print(detailed_fcst_tbl)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# pull the trained models\r\n",
+					"detailed_models_tbl <- finnts::get_trained_models(run_info = run_info_detailed)\r\n",
+					"\r\n",
+					"print(detailed_models_tbl)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Get Finn Run Logs\r\n",
+					"Get logging information for both Finn runs"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# get logs\r\n",
+					"logs_tbl <- get_run_info(path = paste0(path, '/test/'), \r\n",
+					"                         experiment_name = \"Finn_Demo\")\r\n",
+					"\r\n",
+					"print(logs_tbl)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					""
+				],
+				"execution_count": null
+			}
+		]
+	}
+}
