@@ -103,7 +103,7 @@
 					"\r\n",
 					"install.packages('modeltime', repos = 'https://packagemanager.rstudio.com/cran/__linux__/bionic/2022-11-08')\r\n",
 					"\r\n",
-					"install.packages(c('modeltime.gluonts', 'modeltime.resample', 'timechange', 'clock', \r\n",
+					"install.packages(c('modeltime.resample', 'timechange', 'clock', \r\n",
 					"                   'modelenv', 'V8', 'juicyjuice', 'bigD'), \r\n",
 					"                repos = 'https://packagemanager.rstudio.com/cran/__linux__/bionic/2022-11-08')"
 				],
