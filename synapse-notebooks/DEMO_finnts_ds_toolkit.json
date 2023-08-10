@@ -124,7 +124,7 @@
 				},
 				"source": [
 					"# install finnts\r\n",
-					"remotes::install_github('microsoft/finnts@users/mitokic/spark_integration', upgrade = FALSE)\r\n",
+					"remotes::install_github('microsoft/finnts', upgrade = FALSE)\r\n",
 					"\r\n",
 					"library(finnts)"
 				],
